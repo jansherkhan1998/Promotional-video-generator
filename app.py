@@ -33,7 +33,7 @@ if st.button("Generate Video (100% Free)", type="primary"):
                 try:
                     ai_client = genai.Client(api_key=gemini_key)
                     prompt_response = ai_client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model="gemini-2.0-flash",
                         contents=f"Rewrite this user description into a detailed cinematic image-to-video prompt: {user_prompt}"
                     )
                     enhanced_prompt = prompt_response.text
@@ -46,7 +46,7 @@ if st.button("Generate Video (100% Free)", type="primary"):
             with st.spinner("Step 2/2: Rendering video on Hugging Face (Takes ~60s)..."):
                 try:
                     # Connect to a free open-source image-to-video space
-                    hf_client = Client("Wan-AI/Wan2.1-I2V-14B", hf_token=hf_token)
+                   hf_client = Client("Wan-AI/Wan2.1-I2V-14B", token=hf_token)
                     
                     result = hf_client.predict(
                         image=handle_file(tmp_path),
