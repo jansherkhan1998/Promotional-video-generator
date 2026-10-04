@@ -62,18 +62,17 @@ if st.button("Generate Video (100% Free)", type="primary"):
                     except Exception:
                         st.info("Using raw description for video generation.")
 
-          # Step 2: Render Video on Hugging Face (LTX-Video Model)
-            with st.spinner("Step 2/2: Rendering video with LTX-Video (~30s)..."):
+         # Step 2: Render Video on Hugging Face ZeroGPU
+            with st.spinner("Step 2/2: Rendering video on Hugging Face (~30s)..."):
                 video_url_or_path = None
                 try:
-                    # Connect to the live LTX-Video Space slug
+                    # Connect to the Space
                     hf_client = Client("Lightricks/ltx-video-distilled", token=hf_token)
                     
-                    # Generate video using standard image-to-video parameters
+                    # Omit api_name to auto-detect the default function
                     result = hf_client.predict(
-                        prompt=enhanced_prompt,
-                        image=handle_file(tmp_path),
-                        api_name="/predict"
+                        enhanced_prompt,         # 1st arg: prompt
+                        handle_file(tmp_path),   # 2nd arg: input image
                     )
                     
                     # Extract result path safely
@@ -83,12 +82,8 @@ if st.button("Generate Video (100% Free)", type="primary"):
                         video_url_or_path = result
 
                 except Exception as e:
-                    st.error(f"Generation error: {e}. Hugging Face GPUs might be queued. Please wait 15 seconds and try again.")
+                    st.error(f"Generation error: {e}. Hugging Face public GPUs are currently busy. Please try again in a few moments.")
 
-                # Render video player if generation succeeded
-                if video_url_or_path:
-                    st.success("Rendering Complete!")
-                    st.video(video_url_or_path)
                 # Render video player if generation succeeded
                 if video_url_or_path:
                     st.success("Rendering Complete!")
