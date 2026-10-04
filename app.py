@@ -66,19 +66,14 @@ if st.button("Generate Video (100% Free)", type="primary"):
             with st.spinner("Step 2/2: Rendering video with LTX-Video (~30s)..."):
                 video_url_or_path = None
                 try:
-                    # Connect to the official LTX-Video Space
-                    hf_client = Client("Lightricks/LTX-Video", token=hf_token)
+                    # Connect to the live LTX-Video Space slug
+                    hf_client = Client("Lightricks/ltx-video-distilled", token=hf_token)
                     
-                    # Generate video using LTX-Video endpoint
+                    # Generate video using standard image-to-video parameters
                     result = hf_client.predict(
                         prompt=enhanced_prompt,
                         image=handle_file(tmp_path),
-                        negative_prompt="worst quality, blurry, distorted, low resolution",
-                        frame_rate=25,
-                        guidance_scale=3.0,
-                        num_inference_steps=30,
-                        seed=42,
-                        api_name="/generate"
+                        api_name="/predict"
                     )
                     
                     # Extract result path safely
@@ -90,6 +85,10 @@ if st.button("Generate Video (100% Free)", type="primary"):
                 except Exception as e:
                     st.error(f"Generation error: {e}. Hugging Face GPUs might be queued. Please wait 15 seconds and try again.")
 
+                # Render video player if generation succeeded
+                if video_url_or_path:
+                    st.success("Rendering Complete!")
+                    st.video(video_url_or_path)
                 # Render video player if generation succeeded
                 if video_url_or_path:
                     st.success("Rendering Complete!")
