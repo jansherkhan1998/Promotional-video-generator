@@ -62,32 +62,35 @@ if st.button("Generate Video (100% Free)", type="primary"):
                     except Exception:
                         st.info("Using raw description for video generation.")
 
-            # Step 2: Render Video on Hugging Face ZeroGPU Space
-            with st.spinner("Step 2/2: Rendering video on Hugging Face (Takes ~60s)..."):
+          # Step 2: Render Video on Hugging Face (LTX-Video Model)
+            with st.spinner("Step 2/2: Rendering video with LTX-Video (~30s)..."):
                 video_url_or_path = None
-                
-                # Attempt Primary Space
                 try:
-                    hf_client = Client("multimodalart/wan2-1-fast", token=hf_token)
-                    video_url_or_path = hf_client.predict(
+                    # Connect to the official LTX-Video Space
+                    hf_client = Client("Lightricks/LTX-Video", token=hf_token)
+                    
+                    # Generate video using LTX-Video endpoint
+                    result = hf_client.predict(
                         prompt=enhanced_prompt,
                         image=handle_file(tmp_path),
-                        api_name="/predict"
+                        negative_prompt="worst quality, blurry, distorted, low resolution",
+                        frame_rate=25,
+                        guidance_scale=3.0,
+                        num_inference_steps=30,
+                        seed=42,
+                        api_name="/generate"
                     )
-                except Exception as e1:
-                    # Attempt Fallback Space if primary endpoint or queue fails
-                    try:
-                        st.info("Primary GPU queue busy, switching to backup space...")
-                        fallback_client = Client("Wan-AI/Wan2.1", token=hf_token)
-                        video_url_or_path = fallback_client.predict(
-                            prompt=enhanced_prompt,
-                            image=handle_file(tmp_path),
-                            api_name="/generate"
-                        )
-                    except Exception as e2:
-                        st.error(f"Generation error: {e2}. Hugging Face public GPUs are experiencing heavy traffic. Please wait 30 seconds and click Generate again.")
+                    
+                    # Extract result path safely
+                    if isinstance(result, (tuple, list)):
+                        video_url_or_path = result[0]
+                    else:
+                        video_url_or_path = result
 
-                # Render video only if output was successfully produced
+                except Exception as e:
+                    st.error(f"Generation error: {e}. Hugging Face GPUs might be queued. Please wait 15 seconds and try again.")
+
+                # Render video player if generation succeeded
                 if video_url_or_path:
                     st.success("Rendering Complete!")
                     st.video(video_url_or_path)
