@@ -42,19 +42,18 @@ if st.button("Generate Video (100% Free)", type="primary"):
                     enhanced_prompt = user_prompt
                     st.warning("Could not enhance prompt, using raw description.")
 
-            # Step 2: Generate video via free Hugging Face ZeroGPU model
-            with st.spinner("Step 2/2: Rendering video on Hugging Face (Takes ~60s)..."):
-                try:
-                    # Connect to a free open-source image-to-video space
-                   hf_client = Client("Wan-AI/Wan2.1-I2V-14B", token=hf_token)
-                    
-                    result = hf_client.predict(
-                        image=handle_file(tmp_path),
-                        prompt=enhanced_prompt,
-                        api_name="/generate_video"
-                    )
-                    
-                    st.success("Rendering Complete!")
-                    st.video(result)
-                except Exception as e:
-                    st.error(f"Generation error: {e}. Hugging Face GPUs might be busy, please retry in a minute.")
+           # Step 2: Generate video via Hugging Face ZeroGPU model
+        with st.spinner("Step 2/2: Rendering video on Hugging Face (Takes ~60s)..."):
+            try:
+                hf_client = Client("Wan-AI/Wan2.1-I2V-14B", token=hf_token)
+                
+                result = hf_client.predict(
+                    image=handle_file(tmp_path),
+                    prompt=enhanced_prompt,
+                    api_name="/generate_video"
+                )
+                
+                st.success("Rendering Complete!")
+                st.video(result)
+            except Exception as e:
+                st.error(f"Generation error: {e}. Hugging Face GPUs might be busy, please retry in a minute.")
