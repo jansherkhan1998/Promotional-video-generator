@@ -5,7 +5,7 @@ import tempfile
 
 st.set_page_config(page_title="Free AI Video Generator", layout="centered")
 
-st.title("🎬 Free AI Video Generator")
+st.title("🎬 Promotional Video Generator")
 st.write("Generate realistic AI videos with $0 cost using open-source models.")
 
 # 1. User Inputs
