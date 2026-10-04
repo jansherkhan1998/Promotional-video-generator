@@ -20,7 +20,7 @@ if st.button("Generate Video (100% Free)", type="primary"):
         st.error("Please upload an image first!")
     else:
         # Load keys from Streamlit Secrets
-        gemini_key = st.secrets.get("GEMINI_API_KEY")
+        groq_key = st.secrets.get("GROQ_API_KEY")
         hf_token = st.secrets.get("HF_TOKEN")
 
         if not hf_token:
@@ -31,53 +31,53 @@ if st.button("Generate Video (100% Free)", type="primary"):
                 tmp.write(uploaded_file.getvalue())
                 tmp_path = tmp.name
 
-            # Step 1: Refine Prompt via Gemini API REST call (bypasses SDK version conflicts)
+            # Step 1: Refine Prompt via Groq Cloud API (Llama 3)
             enhanced_prompt = user_prompt
-            if gemini_key:
-                with st.spinner("Step 1/2: Enhancing description with Gemini..."):
+            if groq_key:
+                with st.spinner("Step 1/2: Enhancing description with Groq (Llama 3)..."):
                     try:
-                        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
-                        payload = {
-                            "contents": [{
-                                "parts": [{
-                                    "text": f"Rewrite this user description into a detailed cinematic image-to-video prompt: {user_prompt}"
-                                }]
-                            }]
+                        headers = {
+                            "Authorization": f"Bearer {groq_key}",
+                            "Content-Type": "application/json"
                         }
-                        res = requests.post(url, json=payload, timeout=10)
+                        payload = {
+                            "model": "openai/gpt-oss-120b",
+                            "messages": [
+                                {
+                                    "role": "system",
+                                    "content": "You are a professional film director. Rewrite the user description into a single concise cinematic prompt for an image-to-video AI model."
+                                },
+                                {
+                                    "role": "user",
+                                    "content": user_prompt
+                                }
+                            ]
+                        }
+                        res = requests.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers, timeout=10)
                         if res.status_code == 200:
-                            data = res.json()
-                            enhanced_prompt = data['candidates'][0]['content']['parts'][0]['text']
+                            enhanced_prompt = res.json()["choices"][0]["message"]["content"]
                             st.success(f"**Enhanced Prompt:** {enhanced_prompt}")
                         else:
-                            st.info("Using raw description for generation.")
-                    except Exception:
-                        st.info("Using raw description for generation.")
+                            st.info(f"Groq API status {res.status_code}. Using raw description.")
+                    except Exception as e:
+                        st.info(f"Groq call skipped ({e}). Using raw description.")
+            else:
+                st.info("GROQ_API_KEY not found in secrets, using raw description.")
 
-            # Step 2: Render Video on Hugging Face (Auto-discovers endpoints)
+            # Step 2: Render Video on Hugging Face Wan 2.1 Space
             with st.spinner("Step 2/2: Rendering video on Hugging Face (Takes ~60s)..."):
                 try:
-                    # Connects to active Hugging Face ZeroGPU space
-                    hf_client = Client("Wan-AI/Wan2.1", token=hf_token)
+                    # Explicitly connects to the fast Wan 2.1 GPU space
+                    hf_client = Client("multimodalart/wan2-1-fast", token=hf_token)
                     
-                    # Passing inputs without hardcoding restrictive api_name strings
+                    # Specify api_name="/predict" to clear the endpoint error
                     result = hf_client.predict(
-                        handle_file(tmp_path),
-                        enhanced_prompt
+                        prompt=enhanced_prompt,
+                        image=handle_file(tmp_path),
+                        api_name="/predict"
                     )
                     
                     st.success("Rendering Complete!")
                     st.video(result)
                 except Exception as e:
-                    # Alternative Space Fallback if the primary space queue is full
-                    try:
-                        st.warning("Primary space busy, routing to fast fallback GPU space...")
-                        fallback_client = Client("multimodalart/wan2-1-fast", token=hf_token)
-                        result = fallback_client.predict(
-                            handle_file(tmp_path),
-                            enhanced_prompt
-                        )
-                        st.success("Rendering Complete!")
-                        st.video(result)
-                    except Exception as fallback_err:
-                        st.error(f"Generation error: {fallback_err}. Hugging Face GPUs might be experiencing heavy queue traffic. Please retry in 1 minute.")
+                    st.error(f"Generation error: {e}. Hugging Face GPUs might be experiencing heavy queue traffic. Please retry in 1 minute.")
