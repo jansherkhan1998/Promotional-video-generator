@@ -64,19 +64,34 @@ if st.button("Generate Video (100% Free)", type="primary"):
             else:
                 st.info("GROQ_API_KEY not found in secrets, using raw description.")
 
-            # Step 2: Render Video on Hugging Face Wan 2.1 Space
+           # Step 2: Render Video on Hugging Face Wan 2.1 Space
             with st.spinner("Step 2/2: Rendering video on Hugging Face (Takes ~60s)..."):
                 try:
-                    # Explicitly connects to the fast Wan 2.1 GPU space
+                    # Connect to the Hugging Face Space
                     hf_client = Client("multimodalart/wan2-1-fast", token=hf_token)
                     
-                    # Specify api_name="/predict" to clear the endpoint error
+                    # Method A: Try auto-detecting default function execution
                     result = hf_client.predict(
-                        prompt=enhanced_prompt,
-                        image=handle_file(tmp_path),
-                        api_name="/predict"
+                        handle_file(tmp_path), # Image file
+                        enhanced_prompt        # Refined text prompt
                     )
                     
+                    st.success("Rendering Complete!")
+                    st.video(result)
+
+                except Exception as e:
+                    # Method B: Fallback to official Wan-AI zero-GPU space
+                    try:
+                        st.info("Swapping to Wan-AI official GPU queue...")
+                        wan_client = Client("Wan-AI/Wan2.1", token=hf_token)
+                        result = wan_client.predict(
+                            handle_file(tmp_path),
+                            enhanced_prompt
+                        )
+                        st.success("Rendering Complete!")
+                        st.video(result)
+                    except Exception as err:
+                        st.error(f"Generation error: {err}. Hugging Face GPUs are experiencing high traffic. Please wait 30 seconds and click Generate again.")
                     st.success("Rendering Complete!")
                     st.video(result)
                 except Exception as e:
