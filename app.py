@@ -19,22 +19,22 @@ if st.button("Generate Video (100% Free)", type="primary"):
     if not uploaded_file:
         st.error("Please upload an image first!")
     else:
-        # Load keys from Streamlit Secrets
+        # Load API keys from Streamlit Secrets
         groq_key = st.secrets.get("GROQ_API_KEY")
         hf_token = st.secrets.get("HF_TOKEN")
 
         if not hf_token:
             st.error("HF_TOKEN is missing in Streamlit Secrets!")
         else:
-            # Save uploaded image to temp file for Gradio client
+            # Save uploaded image to temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
                 tmp.write(uploaded_file.getvalue())
                 tmp_path = tmp.name
 
-            # Step 1: Refine Prompt via Groq Cloud API (Llama 3)
+            # Step 1: Refine Prompt via Groq Cloud API
             enhanced_prompt = user_prompt
             if groq_key:
-                with st.spinner("Step 1/2: Enhancing description with Groq (Llama 3)..."):
+                with st.spinner("Step 1/2: Enhancing description with Groq..."):
                     try:
                         headers = {
                             "Authorization": f"Bearer {groq_key}",
@@ -45,7 +45,7 @@ if st.button("Generate Video (100% Free)", type="primary"):
                             "messages": [
                                 {
                                     "role": "system",
-                                    "content": "You are a professional film director. Rewrite the user description into a single concise cinematic prompt for an image-to-video AI model."
+                                    "content": "You are a film director. Rewrite user text into a detailed cinematic prompt for an image-to-video AI."
                                 },
                                 {
                                     "role": "user",
@@ -58,41 +58,36 @@ if st.button("Generate Video (100% Free)", type="primary"):
                             enhanced_prompt = res.json()["choices"][0]["message"]["content"]
                             st.success(f"**Enhanced Prompt:** {enhanced_prompt}")
                         else:
-                            st.info(f"Groq API status {res.status_code}. Using raw description.")
-                    except Exception as e:
-                        st.info(f"Groq call skipped ({e}). Using raw description.")
-            else:
-                st.info("GROQ_API_KEY not found in secrets, using raw description.")
+                            st.info("Using raw description for video generation.")
+                    except Exception:
+                        st.info("Using raw description for video generation.")
 
-           # Step 2: Render Video on Hugging Face Wan 2.1 Space
+            # Step 2: Render Video on Hugging Face ZeroGPU Space
             with st.spinner("Step 2/2: Rendering video on Hugging Face (Takes ~60s)..."):
+                video_url_or_path = None
+                
+                # Attempt Primary Space
                 try:
-                    # Connect to the Hugging Face Space
                     hf_client = Client("multimodalart/wan2-1-fast", token=hf_token)
-                    
-                    # Method A: Try auto-detecting default function execution
-                    result = hf_client.predict(
-                        handle_file(tmp_path), # Image file
-                        enhanced_prompt        # Refined text prompt
+                    video_url_or_path = hf_client.predict(
+                        prompt=enhanced_prompt,
+                        image=handle_file(tmp_path),
+                        api_name="/predict"
                     )
-                    
-                    st.success("Rendering Complete!")
-                    st.video(result)
-
-                except Exception as e:
-                    # Method B: Fallback to official Wan-AI zero-GPU space
+                except Exception as e1:
+                    # Attempt Fallback Space if primary endpoint or queue fails
                     try:
-                        st.info("Swapping to Wan-AI official GPU queue...")
-                        wan_client = Client("Wan-AI/Wan2.1", token=hf_token)
-                        result = wan_client.predict(
-                            handle_file(tmp_path),
-                            enhanced_prompt
+                        st.info("Primary GPU queue busy, switching to backup space...")
+                        fallback_client = Client("Wan-AI/Wan2.1", token=hf_token)
+                        video_url_or_path = fallback_client.predict(
+                            prompt=enhanced_prompt,
+                            image=handle_file(tmp_path),
+                            api_name="/generate"
                         )
-                        st.success("Rendering Complete!")
-                        st.video(result)
-                    except Exception as err:
-                        st.error(f"Generation error: {err}. Hugging Face GPUs are experiencing high traffic. Please wait 30 seconds and click Generate again.")
+                    except Exception as e2:
+                        st.error(f"Generation error: {e2}. Hugging Face public GPUs are experiencing heavy traffic. Please wait 30 seconds and click Generate again.")
+
+                # Render video only if output was successfully produced
+                if video_url_or_path:
                     st.success("Rendering Complete!")
-                    st.video(result)
-                except Exception as e:
-                    st.error(f"Generation error: {e}. Hugging Face GPUs might be experiencing heavy queue traffic. Please retry in 1 minute.")
+                    st.video(video_url_or_path)
